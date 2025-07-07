@@ -206,27 +206,31 @@ export function HistoryView() {
         ) : grouped.length > 0 ? (
           <>
             {chartData && (
-              <div className="w-full bg-white dark:bg-gray-800 rounded-lg p-4 mb-8">
-                <Line
-                  data={chartData}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { position: "top" },
-                      title: { display: true, text: "가격 변동 차트" },
-                    },
-                    scales: {
-                      y: {
-                        ticks: {
-                          callback: (value: string | number) =>
-                            typeof value === "number"
-                              ? value.toLocaleString()
-                              : value,
+              <div className="w-full bg-white dark:bg-gray-800 rounded-lg p-4 mb-8 overflow-x-auto">
+                <div className="min-w-[320px] min-h-[220px]">
+                  <Line
+                    data={chartData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: { position: "top" },
+                        title: { display: true, text: "가격 변동 차트" },
+                      },
+                      scales: {
+                        y: {
+                          ticks: {
+                            callback: (value: string | number) =>
+                              typeof value === "number"
+                                ? value.toLocaleString()
+                                : value,
+                          },
                         },
                       },
-                    },
-                  }}
-                />
+                    }}
+                    height={220}
+                  />
+                </div>
               </div>
             )}
             <div className="space-y-4 w-full">

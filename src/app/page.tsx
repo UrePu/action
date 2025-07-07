@@ -17,13 +17,13 @@ export default function LandingPage() {
             href="/erda/price"
             className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg text-lg font-semibold text-center hover:bg-blue-600 transition"
           >
-            가격 정보 바로가기
+            가격 정보
           </Link>
           <Link
-            href="/erda/stats"
+            href="/erda/history"
             className="flex-1 px-6 py-3 bg-purple-500 text-white rounded-lg text-lg font-semibold text-center hover:bg-purple-600 transition"
           >
-            View Stats
+            히스토리
           </Link>
         </div>
         <div className="mt-8 text-sm text-gray-400 text-center">
