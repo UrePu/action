@@ -207,7 +207,7 @@ export function HistoryView() {
           <>
             {chartData && (
               <div className="w-full bg-white dark:bg-gray-800 rounded-lg p-4 mb-8 overflow-x-auto">
-                <div className="min-w-[320px] min-h-[220px]">
+                <div className="min-w-[380px] min-h-[320px] sm:min-w-[520px] sm:min-h-[400px] md:min-w-[900px] md:min-h-[500px]">
                   <Line
                     data={chartData}
                     options={{
@@ -228,7 +228,7 @@ export function HistoryView() {
                         },
                       },
                     }}
-                    height={220}
+                    height={500}
                   />
                 </div>
               </div>
