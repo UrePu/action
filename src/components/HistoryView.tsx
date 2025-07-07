@@ -30,7 +30,7 @@ type OcrData = {
   created_at: string;
 };
 
-type GroupUnit = "minute" | "hour" | "day" | "month";
+type GroupUnit = "minute" | "tenMinute" | "hour" | "day" | "month";
 
 const fetchHistory = async (): Promise<OcrData[]> => {
   const { data: ocrData, error } = await supabase
@@ -51,6 +51,12 @@ function formatGroupKey(date: Date, unit: GroupUnit) {
   const h = date.getHours().toString().padStart(2, "0");
   const min = date.getMinutes().toString().padStart(2, "0");
   if (unit === "minute") return `${y}-${m}-${d} ${h}:${min}`;
+  if (unit === "tenMinute") {
+    const tenMin = (Math.floor(Number(min) / 10) * 10)
+      .toString()
+      .padStart(2, "0");
+    return `${y}-${m}-${d} ${h}:${tenMin}`;
+  }
   if (unit === "hour") return `${y}-${m}-${d} ${h}`;
   if (unit === "day") return `${y}-${m}-${d}`;
   if (unit === "month") return `${y}-${m}`;
@@ -90,7 +96,7 @@ function groupOcrData(data: OcrData[], unit: GroupUnit) {
 
 export function HistoryView() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [unit, setUnit] = useState<GroupUnit>("minute");
+  const [unit, setUnit] = useState<GroupUnit>("tenMinute");
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery<OcrData[]>(
     {
@@ -106,36 +112,45 @@ export function HistoryView() {
     [data, unit]
   );
 
+  const unitLimits: Record<GroupUnit, number | undefined> = {
+    minute: 180, // 3시간
+    tenMinute: 72, // 12시간
+    hour: 36, // 36시간
+    day: undefined, // 전체
+    month: 12, // 1년
+  };
+
+  // 제한 적용된 데이터
+  const limitedGrouped = useMemo(() => {
+    const limit = unitLimits[unit];
+    if (limit && grouped.length > limit) {
+      return grouped.slice(-limit);
+    }
+    return grouped;
+  }, [grouped, unit]);
+
   const chartData =
-    grouped.length > 0
+    limitedGrouped.length > 0
       ? {
-          labels: grouped.map(
+          labels: limitedGrouped.map(
             (record) =>
               record.groupKey ??
               new Date(record.created_at).toLocaleDateString("ko-KR")
           ),
           datasets: [
             {
-              label: "최저가",
-              data: grouped.map((record) =>
-                record.items.length > 0 ? Math.min(...record.items) : null
-              ),
-              borderColor: "rgb(59, 130, 246)",
-              backgroundColor: "rgba(59, 130, 246, 0.2)",
-              tension: 0.2,
-            },
-            {
               label: "최고가",
-              data: grouped.map((record) =>
+              data: limitedGrouped.map((record) =>
                 record.items.length > 0 ? Math.max(...record.items) : null
               ),
               borderColor: "rgb(34, 197, 94)",
               backgroundColor: "rgba(34, 197, 94, 0.2)",
               tension: 0.2,
+              pointStyle: "rect",
             },
             {
               label: "평균가",
-              data: grouped.map((record) =>
+              data: limitedGrouped.map((record) =>
                 record.items.length > 0
                   ? Math.round(
                       record.items.reduce((sum, item) => sum + item, 0) /
@@ -146,6 +161,17 @@ export function HistoryView() {
               borderColor: "rgb(168, 85, 247)",
               backgroundColor: "rgba(168, 85, 247, 0.2)",
               tension: 0.2,
+              pointStyle: "rect",
+            },
+            {
+              label: "최저가",
+              data: limitedGrouped.map((record) =>
+                record.items.length > 0 ? Math.min(...record.items) : null
+              ),
+              borderColor: "rgb(59, 130, 246)",
+              backgroundColor: "rgba(59, 130, 246, 0.2)",
+              tension: 0.2,
+              pointStyle: "rect",
             },
           ],
         }
@@ -171,10 +197,11 @@ export function HistoryView() {
           </button>
           <div className="flex gap-2 ml-4 mt-2 sm:mt-0">
             {[
-              { label: "분당", value: "minute" },
-              { label: "시간당", value: "hour" },
-              { label: "일당", value: "day" },
-              { label: "월당", value: "month" },
+              { label: "분별", value: "minute" },
+              { label: "10분별", value: "tenMinute" },
+              { label: "시간별", value: "hour" },
+              { label: "일별", value: "day" },
+              { label: "월별", value: "month" },
             ].map((btn) => (
               <button
                 key={btn.value}
@@ -204,7 +231,7 @@ export function HistoryView() {
           <div className="text-gray-500 dark:text-gray-300">
             데이터를 불러오는 중...
           </div>
-        ) : grouped.length > 0 ? (
+        ) : limitedGrouped.length > 0 ? (
           <>
             {chartData && (
               <div className="w-full bg-white dark:bg-gray-800 rounded-lg p-4 mb-8 overflow-x-auto">
@@ -226,6 +253,33 @@ export function HistoryView() {
                           titleColor: "#fff",
                           bodyColor: "#fff",
                           displayColors: true,
+                          usePointStyle: true,
+                          bodyFont: { size: 15 },
+                          titleFont: { size: 16 },
+                          callbacks: {
+                            label: function (context) {
+                              const { dataset, dataIndex, parsed } = context;
+                              let label = `${
+                                dataset.label ?? ""
+                              }: ${parsed.y?.toLocaleString()}`;
+                              if (dataIndex > 0) {
+                                const prev = dataset.data[dataIndex - 1];
+                                if (
+                                  typeof prev === "number" &&
+                                  typeof parsed.y === "number"
+                                ) {
+                                  const diff = parsed.y - prev;
+                                  const percent =
+                                    prev !== 0 ? (diff / prev) * 100 : 0;
+                                  const sign = diff > 0 ? "+" : "";
+                                  label += `  (${sign}${diff.toLocaleString()}  ${sign}${percent.toFixed(
+                                    1
+                                  )}%)`;
+                                }
+                              }
+                              return label;
+                            },
+                          },
                         },
                       },
                       interaction: {
@@ -291,7 +345,7 @@ export function HistoryView() {
               </div>
             )}
             <div className="space-y-4 w-full">
-              {[...grouped].reverse().map((record) => (
+              {[...limitedGrouped].reverse().map((record) => (
                 <div
                   key={record.groupKey}
                   className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-sm overflow-hidden"
