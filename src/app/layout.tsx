@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body className="antialiased pt-16">
+      <body className="font-maplestory antialiased pt-16">
         <Navigation />
         <ClientProviders>{children}</ClientProviders>
       </body>
