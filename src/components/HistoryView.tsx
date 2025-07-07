@@ -179,13 +179,14 @@ export function HistoryView() {
               <button
                 key={btn.value}
                 onClick={() => setUnit(btn.value as GroupUnit)}
-                className={`px-3 py-1 rounded border text-sm font-medium transition-colors
+                className={`px-5 py-2 rounded-lg border text-base font-semibold transition-colors
                   ${
                     unit === btn.value
-                      ? "bg-blue-500 text-white border-blue-500"
+                      ? "bg-blue-500 text-white border-blue-500 shadow-md"
                       : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-blue-100 dark:hover:bg-blue-900"
                   }
                 `}
+                style={{ minWidth: 72 }}
               >
                 {btn.label}
               </button>
@@ -216,6 +217,26 @@ export function HistoryView() {
                       plugins: {
                         legend: { position: "top" },
                         title: { display: true, text: "가격 변동 차트" },
+                        tooltip: {
+                          mode: "index",
+                          intersect: false,
+                          backgroundColor: "rgba(30,41,59,0.95)",
+                          borderColor: "#3b82f6",
+                          borderWidth: 2,
+                          titleColor: "#fff",
+                          bodyColor: "#fff",
+                          displayColors: true,
+                        },
+                      },
+                      interaction: {
+                        mode: "index",
+                        intersect: false,
+                        axis: "x",
+                      },
+                      hover: {
+                        mode: "index",
+                        intersect: false,
+                        axis: "x",
                       },
                       scales: {
                         y: {
@@ -227,8 +248,44 @@ export function HistoryView() {
                           },
                         },
                       },
+                      elements: {
+                        line: {
+                          borderWidth: 3,
+                        },
+                        point: {
+                          radius: 3,
+                          hoverRadius: 6,
+                        },
+                      },
                     }}
                     height={500}
+                    plugins={[
+                      // Custom plugin to draw vertical crosshair line
+                      {
+                        id: "crosshairLine",
+                        afterDraw: (chart) => {
+                          const tooltip = chart.tooltip;
+                          if (
+                            tooltip &&
+                            tooltip.dataPoints &&
+                            tooltip.dataPoints.length
+                          ) {
+                            const ctx = chart.ctx;
+                            ctx.save();
+                            const x = tooltip.dataPoints[0].element.x;
+                            ctx.beginPath();
+                            ctx.moveTo(x, chart.chartArea.top);
+                            ctx.lineTo(x, chart.chartArea.bottom);
+                            ctx.lineWidth = 2;
+                            ctx.strokeStyle = "#fff";
+                            ctx.shadowColor = "#000";
+                            ctx.shadowBlur = 4;
+                            ctx.stroke();
+                            ctx.restore();
+                          }
+                        },
+                      },
+                    ]}
                   />
                 </div>
               </div>
@@ -334,8 +391,22 @@ export function HistoryView() {
                                   : "N/A"}
                               </span>
                             </div>
-                            <div className="flex justify-between">
-                              <span>가격 변동폭:</span>
+                            <div className="flex justify-between items-center relative group">
+                              <span className="flex items-center gap-1">
+                                가격 변동폭:
+                                <span className="ml-1 cursor-pointer text-blue-400 relative">
+                                  <span
+                                    className="inline-block w-4 h-4 rounded-full bg-blue-100 text-blue-600 text-xs font-bold flex items-center justify-center border border-blue-300"
+                                    tabIndex={0}
+                                  >
+                                    ?
+                                  </span>
+                                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 min-w-[220px] max-w-xs bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs rounded shadow-lg px-4 py-3 z-50 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto transition-opacity whitespace-pre-line break-keep">
+                                    최저가 대비 최고가의 비율(%)을 의미합니다.
+                                    예) 100%면 두 배, 50%면 1.5배
+                                  </div>
+                                </span>
+                              </span>
                               <span className="font-medium">
                                 {record.items.length > 0
                                   ? (
