@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Line } from "react-chartjs-2";
 import {
@@ -13,7 +13,10 @@ import {
   Title,
   Tooltip,
   Legend,
+  Chart,
+  TooltipItem,
 } from "chart.js";
+import { useTheme } from "next-themes";
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -97,30 +100,31 @@ function groupOcrData(data: OcrData[], unit: GroupUnit) {
 export function HistoryView() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [unit, setUnit] = useState<GroupUnit>("tenMinute");
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const { data, isLoading, error, refetch, isRefetching } = useQuery<OcrData[]>(
-    {
-      queryKey: ["ocrHistory"],
-      queryFn: fetchHistory,
-      staleTime: 1000 * 30,
-      refetchInterval: 1000 * 30,
-    }
-  );
-
+  const queryResult = useQuery<OcrData[]>({
+    queryKey: ["ocrHistory"],
+    queryFn: fetchHistory,
+    staleTime: 1000 * 30,
+    refetchInterval: 1000 * 30,
+  });
+  const { data, isLoading, error, refetch, isRefetching } = queryResult;
   const grouped = useMemo(
     () => (data ? groupOcrData(data, unit) : []),
     [data, unit]
   );
-
   const unitLimits: Record<GroupUnit, number | undefined> = {
-    minute: 180, // 3시간
-    tenMinute: 72, // 12시간
-    hour: 36, // 36시간
-    day: undefined, // 전체
-    month: 12, // 1년
+    minute: 60, // 1시간
+    tenMinute: 60, // 6시간
+    hour: 60, // 12시간
+    day: 60, // 24시간
+    month: 60, // 30일
   };
-
-  // 제한 적용된 데이터
   const limitedGrouped = useMemo(() => {
     const limit = unitLimits[unit];
     if (limit && grouped.length > limit) {
@@ -128,7 +132,6 @@ export function HistoryView() {
     }
     return grouped;
   }, [grouped, unit]);
-
   const chartData =
     limitedGrouped.length > 0
       ? {
@@ -143,8 +146,10 @@ export function HistoryView() {
               data: limitedGrouped.map((record) =>
                 record.items.length > 0 ? Math.max(...record.items) : null
               ),
-              borderColor: "rgb(34, 197, 94)",
-              backgroundColor: "rgba(34, 197, 94, 0.2)",
+              borderColor: isDark ? "#4ade80" : "rgb(34, 197, 94)",
+              backgroundColor: isDark
+                ? "rgba(74, 222, 128, 0.2)"
+                : "rgba(34, 197, 94, 0.2)",
               tension: 0.2,
               pointStyle: "rect",
             },
@@ -158,8 +163,10 @@ export function HistoryView() {
                     )
                   : null
               ),
-              borderColor: "rgb(168, 85, 247)",
-              backgroundColor: "rgba(168, 85, 247, 0.2)",
+              borderColor: isDark ? "#a78bfa" : "rgb(168, 85, 247)",
+              backgroundColor: isDark
+                ? "rgba(167, 139, 250, 0.2)"
+                : "rgba(168, 85, 247, 0.2)",
               tension: 0.2,
               pointStyle: "rect",
             },
@@ -168,8 +175,10 @@ export function HistoryView() {
               data: limitedGrouped.map((record) =>
                 record.items.length > 0 ? Math.min(...record.items) : null
               ),
-              borderColor: "rgb(59, 130, 246)",
-              backgroundColor: "rgba(59, 130, 246, 0.2)",
+              borderColor: isDark ? "#60a5fa" : "rgb(59, 130, 246)",
+              backgroundColor: isDark
+                ? "rgba(96, 165, 250, 0.2)"
+                : "rgba(59, 130, 246, 0.2)",
               tension: 0.2,
               pointStyle: "rect",
             },
@@ -177,9 +186,78 @@ export function HistoryView() {
         }
       : undefined;
 
+  if (!mounted) return null;
+
   const toggleExpanded = (id: number) => {
     setExpandedId(expandedId === id ? null : id);
   };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { position: "top" } as const,
+      title: { display: true, text: "가격 변동 차트" },
+      tooltip: {
+        mode: "index",
+        intersect: false,
+        backgroundColor: "rgba(30,41,59,0.95)",
+        borderColor: "#3b82f6",
+        borderWidth: 2,
+        titleColor: "#fff",
+        bodyColor: "#fff",
+        displayColors: true,
+        usePointStyle: true,
+        bodyFont: { size: 15 },
+        titleFont: { size: 16 },
+        callbacks: {
+          label: function (context: TooltipItem<"line">) {
+            const { dataset, dataIndex, parsed } = context;
+            let label = `${dataset.label ?? ""}: ${parsed.y?.toLocaleString()}`;
+            if (dataIndex > 0) {
+              const prev = dataset.data[dataIndex - 1];
+              if (typeof prev === "number" && typeof parsed.y === "number") {
+                const diff = parsed.y - prev;
+                const percent = prev !== 0 ? (diff / prev) * 100 : 0;
+                const sign = diff > 0 ? "+" : "";
+                label += `  (${sign}${diff.toLocaleString()}  ${sign}${percent.toFixed(
+                  1
+                )}%)`;
+              }
+            }
+            return label;
+          },
+        },
+      },
+    },
+    interaction: {
+      mode: "index" as const,
+      intersect: false,
+      axis: "x" as const,
+    },
+    hover: {
+      mode: "index" as const,
+      intersect: false,
+      axis: "x" as const,
+    },
+    scales: {
+      y: {
+        ticks: {
+          callback: (value: string | number) =>
+            typeof value === "number" ? value.toLocaleString() : value,
+        },
+      },
+    },
+    elements: {
+      line: {
+        borderWidth: 3,
+      },
+      point: {
+        radius: 3,
+        hoverRadius: 6,
+      },
+    },
+  } as const;
 
   return (
     <div className="min-h-screen p-8 pb-20 bg-gray-50 dark:bg-gray-900">
@@ -238,102 +316,30 @@ export function HistoryView() {
                 <div className="min-w-[380px] min-h-[320px] sm:min-w-[520px] sm:min-h-[400px] md:min-w-[900px] md:min-h-[500px]">
                   <Line
                     data={chartData}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: { position: "top" },
-                        title: { display: true, text: "가격 변동 차트" },
-                        tooltip: {
-                          mode: "index",
-                          intersect: false,
-                          backgroundColor: "rgba(30,41,59,0.95)",
-                          borderColor: "#3b82f6",
-                          borderWidth: 2,
-                          titleColor: "#fff",
-                          bodyColor: "#fff",
-                          displayColors: true,
-                          usePointStyle: true,
-                          bodyFont: { size: 15 },
-                          titleFont: { size: 16 },
-                          callbacks: {
-                            label: function (context) {
-                              const { dataset, dataIndex, parsed } = context;
-                              let label = `${
-                                dataset.label ?? ""
-                              }: ${parsed.y?.toLocaleString()}`;
-                              if (dataIndex > 0) {
-                                const prev = dataset.data[dataIndex - 1];
-                                if (
-                                  typeof prev === "number" &&
-                                  typeof parsed.y === "number"
-                                ) {
-                                  const diff = parsed.y - prev;
-                                  const percent =
-                                    prev !== 0 ? (diff / prev) * 100 : 0;
-                                  const sign = diff > 0 ? "+" : "";
-                                  label += `  (${sign}${diff.toLocaleString()}  ${sign}${percent.toFixed(
-                                    1
-                                  )}%)`;
-                                }
-                              }
-                              return label;
-                            },
-                          },
-                        },
-                      },
-                      interaction: {
-                        mode: "index",
-                        intersect: false,
-                        axis: "x",
-                      },
-                      hover: {
-                        mode: "index",
-                        intersect: false,
-                        axis: "x",
-                      },
-                      scales: {
-                        y: {
-                          ticks: {
-                            callback: (value: string | number) =>
-                              typeof value === "number"
-                                ? value.toLocaleString()
-                                : value,
-                          },
-                        },
-                      },
-                      elements: {
-                        line: {
-                          borderWidth: 3,
-                        },
-                        point: {
-                          radius: 3,
-                          hoverRadius: 6,
-                        },
-                      },
-                    }}
+                    options={options}
                     height={500}
                     plugins={[
-                      // Custom plugin to draw vertical crosshair line
                       {
                         id: "crosshairLine",
-                        afterDraw: (chart) => {
+                        afterDatasetsDraw: (chart: Chart) => {
                           const tooltip = chart.tooltip;
                           if (
                             tooltip &&
+                            tooltip.opacity > 0 &&
                             tooltip.dataPoints &&
-                            tooltip.dataPoints.length
+                            tooltip.dataPoints.length > 0
                           ) {
                             const ctx = chart.ctx;
-                            ctx.save();
                             const x = tooltip.dataPoints[0].element.x;
+                            ctx.save();
                             ctx.beginPath();
                             ctx.moveTo(x, chart.chartArea.top);
                             ctx.lineTo(x, chart.chartArea.bottom);
-                            ctx.lineWidth = 2;
-                            ctx.strokeStyle = "#fff";
-                            ctx.shadowColor = "#000";
-                            ctx.shadowBlur = 4;
+                            ctx.lineWidth = 3;
+                            ctx.globalAlpha = 1;
+                            ctx.setLineDash([]);
+                            ctx.strokeStyle = isDark ? "#fff" : "#111";
+                            ctx.shadowBlur = 0;
                             ctx.stroke();
                             ctx.restore();
                           }
