@@ -5,8 +5,8 @@ import { Navigation } from "@/components/Navigation";
 import { ThemeProvider } from "next-themes";
 
 export const metadata: Metadata = {
-  title: "솔 에르다조각 폰지사기방",
-  description: "솔 에르다조각 폰지사기방",
+  title: "솔 에르다 조각 폰지사기방",
+  description: "솔 에르다 조각 폰지사기방",
   icons: {
     icon: "/image/sol.webp",
   },
