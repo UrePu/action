@@ -105,6 +105,7 @@ export function HistoryView() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
+    ChartJS.defaults.font.family = "Maplestory";
   }, []);
 
   const queryResult = useQuery<OcrData[]>({
@@ -196,8 +197,17 @@ export function HistoryView() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: "top" } as const,
-      title: { display: true, text: "가격 변동 차트" },
+      legend: {
+        position: "top" as const,
+        labels: {
+          font: { family: "Maplestory" },
+        },
+      },
+      title: {
+        display: true,
+        text: "가격 변동 차트",
+        font: { family: "Maplestory" },
+      },
       tooltip: {
         mode: "index",
         intersect: false,
@@ -208,8 +218,8 @@ export function HistoryView() {
         bodyColor: "#fff",
         displayColors: true,
         usePointStyle: true,
-        bodyFont: { size: 15 },
-        titleFont: { size: 16 },
+        bodyFont: { size: 15, family: "Maplestory" },
+        titleFont: { size: 16, family: "Maplestory" },
         callbacks: {
           label: function (context: TooltipItem<"line">) {
             const { dataset, dataIndex, parsed } = context;
@@ -243,8 +253,14 @@ export function HistoryView() {
     scales: {
       y: {
         ticks: {
+          font: { family: "Maplestory" },
           callback: (value: string | number) =>
             typeof value === "number" ? value.toLocaleString() : value,
+        },
+      },
+      x: {
+        ticks: {
+          font: { family: "Maplestory" },
         },
       },
     },
@@ -257,6 +273,7 @@ export function HistoryView() {
         hoverRadius: 6,
       },
     },
+    font: { family: "Maplestory" },
   } as const;
 
   return (
